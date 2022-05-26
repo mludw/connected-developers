@@ -1,0 +1,11 @@
+*.class
+.bloop/
+.bsp/
+.metals/
+.vscode/
+target/
+project/.bloop
+project/project
+project/target
+project/metals.sbt
+
