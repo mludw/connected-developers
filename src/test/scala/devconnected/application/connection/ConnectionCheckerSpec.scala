@@ -1,71 +1,71 @@
 package devconnected.application.connection
 
-import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import cats.data.NonEmptyList
 import org.scalatest.Inside
 
 class ConnectionCheckerSpec extends AnyFreeSpec with Matchers with Inside with TableDrivenPropertyChecks {
 
-  "checkConnection should respond with true for the developers with intersecting github groups" in new TestContext {
-    val noGroupAssigned = Table(
-      ("developer 1 github groups", "developer 2 github groups", "common groups"),
-      (List(group1), List(group1), NonEmptyList.of(group1)),
-      (List(group2, group1), List(group1, group2, group3), NonEmptyList.of(group1, group2)),
-      (List(group2, group3, group1), List(group3), NonEmptyList.of(group3)),
-      (List(group2, group3, group1), List(group2, group3), NonEmptyList.of(group2, group3)),
-      (List(group2, group3, group1), List(group1, group3, group2), NonEmptyList.of(group1, group2, group3))
+  "checkConnection should respond with true for the developers with intersecting github organisations" in new TestContext {
+    val withMatchingOrganisations = Table(
+      ("developer 1 github organisations", "developer 2 github organisations", "common organisations"),
+      (List(org1), List(org1), NonEmptyList.of(org1)),
+      (List(org2, org1), List(org1, org2, org3), NonEmptyList.of(org1, org2)),
+      (List(org2, org3, org1), List(org3), NonEmptyList.of(org3)),
+      (List(org2, org3, org1), List(org2, org3), NonEmptyList.of(org2, org3)),
+      (List(org2, org3, org1), List(org1, org3, org2), NonEmptyList.of(org1, org2, org3))
     )
 
-    forAll(noGroupAssigned) { case (groups1, groups2, commonGroups) =>
-      val developer1 = developer.copy(githubGroups = groups1)
-      val developer2 = developer.copy(githubGroups = groups2)
+    forAll(withMatchingOrganisations) { case (org1, org2, commonOrgs) =>
+      val developer1 = developer.copy(githubOrganisations = org1)
+      val developer2 = developer.copy(githubOrganisations = org2)
 
       val check = ConnectionChecker.checkConnection(developer1, developer2)
 
       inside(check) { case Connected(connected) =>
-        connected.toList should contain allElementsOf (commonGroups.toList)
+        connected.toList should contain allElementsOf (commonOrgs.toList)
       }
     }
   }
 
-  "checkConnection should respond with false when the developer does not belong to any github group" in new TestContext {
-    val noGroupAssigned = Table(
-      ("developer 1 github groups", "developer 2 github groups"),
-      List.empty[GithubGroup] -> List(group1),
-      List(group1)            -> List.empty[GithubGroup],
-      List.empty[GithubGroup] -> List.empty[GithubGroup]
+  "checkConnection should respond with false when the developer does not belong to any github organisation" in new TestContext {
+    val noOrganisationAssigned = Table(
+      ("developer 1 github organisations", "developer 2 github organisations"),
+      List.empty[GithubOrganisation] -> List(org1),
+      List(org1)                     -> List.empty[GithubOrganisation],
+      List.empty[GithubOrganisation] -> List.empty[GithubOrganisation]
     )
 
-    forAll(noGroupAssigned) { case (groups1, groups2) =>
-      val developer1 = developer.copy(githubGroups = groups1)
-      val developer2 = developer.copy(githubGroups = groups2)
+    forAll(noOrganisationAssigned) { case (org1, org2) =>
+      val developer1 = developer.copy(githubOrganisations = org1)
+      val developer2 = developer.copy(githubOrganisations = org2)
 
       ConnectionChecker.checkConnection(developer1, developer2) shouldBe NotConnected
     }
   }
 
-  "checkConnection should respond with false for the users with different github groups" in new TestContext {
-    val noGroupAssigned = Table(
-      ("developer 1 github groups", "developer 2 github groups"),
-      List(group1)         -> List(group2),
-      List(group2, group1) -> List(group3),
-      List(group1)         -> List(group2, group3),
-      List(group1, group4) -> List(group2, group3)
+  "checkConnection should respond with false for the users with different github organisations" in new TestContext {
+    val withoutMatchingOrganisations = Table(
+      ("developer 1 github organisations", "developer 2 github organisations"),
+      List(org1)       -> List(org2),
+      List(org2, org1) -> List(org3),
+      List(org1)       -> List(org2, org3),
+      List(org1, org4) -> List(org2, org3)
     )
 
-    forAll(noGroupAssigned) { case (groups1, groups2) =>
-      val developer1 = developer.copy(githubGroups = groups1)
-      val developer2 = developer.copy(githubGroups = groups2)
+    forAll(withoutMatchingOrganisations) { case (org1, org2) =>
+      val developer1 = developer.copy(githubOrganisations = org1)
+      val developer2 = developer.copy(githubOrganisations = org2)
 
       ConnectionChecker.checkConnection(developer1, developer2) shouldBe NotConnected
     }
   }
 
-  trait TestContext {
-    val List(group1, group2, group3, group4) = List.tabulate(4)(i => GithubGroup(s"group-$i"))
+  private trait TestContext {
+    val List(org1, org2, org3, org4) = List.tabulate(4)(i => GithubOrganisation(s"org-$i"))
 
-    val developer = DeveloperData(githubGroups = List(group1, group2))
+    val developer = DeveloperData(githubOrganisations = List(org1, org2))
   }
 }

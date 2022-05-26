@@ -7,6 +7,12 @@ The application provided REST API for finding connected developers.
  - they follow each other on tweeter
  - they have at least one Github organization in common
 
+### Design
+
+The application is designed using of hexagonal architecture.
+The 'devconnected.application' package defines the domain,
+other 'devconnected.*' packages implement adapters.
+
 ### Usage
 
 To run the app execute 

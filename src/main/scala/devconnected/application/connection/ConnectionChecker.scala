@@ -8,8 +8,8 @@ trait ConnectionChecker {
 
 object ConnectionChecker extends ConnectionChecker {
   override def checkConnection(developer1: DeveloperData, developer2: DeveloperData): ConnectionCheck =
-    developer1.githubGroups.collect {
-      case group if developer2.githubGroups.contains(group) => group
+    developer1.githubOrganisations.collect {
+      case org if developer2.githubOrganisations.contains(org) => org
     } match {
       case t :: h => Connected(NonEmptyList(t, h))
       case _      => NotConnected
