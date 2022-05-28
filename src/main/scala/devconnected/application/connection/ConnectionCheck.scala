@@ -2,12 +2,12 @@ package devconnected.application.connection
 
 import cats.data.NonEmptyList
 
-trait ConnectionChecker {
-  def checkConnection(developer1: DeveloperData, developer2: DeveloperData): ConnectionCheck
+trait ConnectionCheck {
+  def apply(developer1: DeveloperData, developer2: DeveloperData): ConnectionCheckResult
 }
 
-object ConnectionChecker extends ConnectionChecker {
-  override def checkConnection(developer1: DeveloperData, developer2: DeveloperData): ConnectionCheck =
+object ConnectionCheck extends ConnectionCheck {
+  override def apply(developer1: DeveloperData, developer2: DeveloperData): ConnectionCheckResult =
     developer1.githubOrganisations.collect {
       case org if developer2.githubOrganisations.contains(org) => org
     } match {

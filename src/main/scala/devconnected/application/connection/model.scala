@@ -14,6 +14,6 @@ object GithubOrganisation:
 
 final case class DeveloperData(githubOrganisations: List[GithubOrganisation])
 
-sealed trait ConnectionCheck
-final case class Connected(githubOrganisations: NonEmptyList[GithubOrganisation]) extends ConnectionCheck
-case object NotConnected                                                          extends ConnectionCheck
+sealed trait ConnectionCheckResult
+final case class Connected(githubOrganisations: NonEmptyList[GithubOrganisation]) extends ConnectionCheckResult
+case object NotConnected                                                          extends ConnectionCheckResult
