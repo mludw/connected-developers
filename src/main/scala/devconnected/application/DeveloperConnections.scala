@@ -10,7 +10,7 @@ import devconnected.application.error.ConnectionsFailure
 import devconnected.application.error.InvalidGithubUserHandle
 import devconnected.application.connection.DeveloperData
 
-class DeveloperConnections[F[_]: Applicative](github: GithubApi[F], connectionCheck: ConnectionCheck) {
+class DeveloperConnections[F[_]: Applicative](github: GithubApi[F], connectionCheck: ConnectionCheck):
   def checkConnection(
       handle1: UserHandle,
       handle2: UserHandle
@@ -25,4 +25,3 @@ class DeveloperConnections[F[_]: Applicative](github: GithubApi[F], connectionCh
           val developer2 = DeveloperData(orgs2)
           connectionCheck(developer1, developer2).asRight
       }
-}
