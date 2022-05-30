@@ -17,21 +17,14 @@ import org.http4s.client.dsl.io._
 import org.http4s.headers._
 import org.http4s.Request
 import org.http4s.Method.GET
-import org.http4s.Uri
 import org.http4s.syntax.all.uri
 import org.http4s.Header
-import org.http4s.Headers
-import org.http4s.Credentials
-import org.http4s.AuthScheme
 import org.http4s.circe._
 import io.circe.generic.auto._
-import org.http4s.EntityDecoder
 import org.http4s.Status
 import org.http4s.Status.Successful
 import org.http4s.Status.ClientError
-import cats.effect.kernel.MonadCancel
 import cats.effect.Concurrent
-import cats.Traverse
 import org.typelevel.ci.CIStringSyntax
 import org.http4s.QueryParam
 

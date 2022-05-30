@@ -7,6 +7,11 @@ opaque type UserHandle = String
 object UserHandle:
   def apply(s: String): UserHandle = s
 
+opaque type UserId = String
+
+object UserId:
+  def apply(s: String): UserId = s
+
 opaque type GithubOrganisation = String
 
 object GithubOrganisation:

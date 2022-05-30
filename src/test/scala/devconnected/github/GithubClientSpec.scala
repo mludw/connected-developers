@@ -19,9 +19,6 @@ import io.circe.syntax._
 import io.circe.Encoder
 import io.circe.Json
 
-import org.http4s.client._
-import org.http4s.client.dsl.io._
-import cats.effect._
 import io.circe._
 import org.http4s._
 import org.http4s.dsl.io._
