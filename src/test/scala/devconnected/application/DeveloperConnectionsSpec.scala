@@ -1,6 +1,5 @@
 package devconnected.application
 
-import cats.Id
 import cats.syntax.option._
 import devconnected.application.connection.ConnectionCheck
 import devconnected.application.connection.GithubOrganisation
@@ -17,10 +16,14 @@ import devconnected.application.connection.Connected
 import cats.data.NonEmptyList
 import devconnected.application.connection.DeveloperData
 import java.util.concurrent.atomic.AtomicReference
+import cats.effect.IO
+import devconnected.application.github.GithubApi.UserNotFound
+import cats.effect.unsafe.implicits._
+import scala.concurrent.duration._
 
 class DeveloperConnectionsSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
-  "should get user github organisations and compart them using ConnectionCheck" in new TestContext {
+  "should get user github organisations and compare them using ConnectionCheck" in new TestContext {
     val github = githubApi(userOrganisations = Map(handle1 -> List(org1), handle2 -> List(org2)))
     val cases = Table(
       ("checker results"),
@@ -31,9 +34,31 @@ class DeveloperConnectionsSpec extends AnyFreeSpec with Matchers with TableDrive
     forAll(cases) { checkResult =>
       val connections = new DeveloperConnections(github, (_, _) => checkResult)
 
-      val check = connections.checkConnection(handle1, handle2)
+      val check = connections.checkConnection(handle1, handle2).unsafeRunSync()
 
-      check shouldBe Right(checkResult)
+      check shouldBe checkResult
+    }
+  }
+
+  "call github api for the developers in parallel" in new TestContext {
+    val cases = Table(
+      ("user 1 delay", "user 2 delay", "second user"),
+      (10.millis, 50.millis, handle2),
+      (50.millis, 10.millis, handle1)
+    )
+    val lastUser = new AtomicReference[Option[UserHandle]](None)
+
+    forAll(cases) { (user1Delay, user2Delay, expectedSecondUser) =>
+      val github: GithubApi[IO] = {
+        case `handle1` => IO.sleep(user1Delay).map(_ => lastUser.set(handle1.some)).as(List.empty)
+        case `handle2` => IO.sleep(user2Delay).map(_ => lastUser.set(handle2.some)).as(List.empty)
+      }
+
+      val connections = new DeveloperConnections(github, (_, _) => NotConnected)
+
+      connections.checkConnection(handle1, handle2).unsafeRunSync()
+
+      lastUser.get shouldBe expectedSecondUser.some
     }
   }
 
@@ -49,7 +74,7 @@ class DeveloperConnectionsSpec extends AnyFreeSpec with Matchers with TableDrive
     }
     val connections = new DeveloperConnections(github, connectionCheck)
 
-    val check = connections.checkConnection(handle1, handle2)
+    connections.checkConnection(handle1, handle2).unsafeRunSync()
 
     callParams.get shouldBe Some((dev1, dev2))
   }
@@ -57,18 +82,18 @@ class DeveloperConnectionsSpec extends AnyFreeSpec with Matchers with TableDrive
   "checkConnection should fail if developer is not found by handle in github" in new TestContext {
     val cases = Table(
       ("user organisations", "missing user handles"),
-      (Map.empty[UserHandle, List[GithubOrganisation]], List(handle1, handle2)),
-      (Map(handle1 -> List(org1)), List(handle2)),
-      (Map(handle2 -> List(org1)), List(handle1))
+      (Map.empty[UserHandle, List[GithubOrganisation]], NonEmptyList.of(handle1, handle2)),
+      (Map(handle1 -> List(org1)), NonEmptyList.one(handle2)),
+      (Map(handle2 -> List(org1)), NonEmptyList.one(handle1))
     )
 
     forAll(cases) { (userOrganisations, missingHandles) =>
       val github      = githubApi(userOrganisations = userOrganisations)
       val connections = new DeveloperConnections(github, (_, _) => NotConnected)
 
-      val check = connections.checkConnection(handle1, handle2)
+      val check = connections.checkConnection(handle1, handle2).unsafeRunSync()
 
-      check shouldBe Left(missingHandles.map(InvalidGithubUserHandle(_)))
+      check shouldBe missingHandles.map(InvalidGithubUserHandle(_))
     }
   }
 
@@ -78,7 +103,7 @@ class DeveloperConnectionsSpec extends AnyFreeSpec with Matchers with TableDrive
     val org1    = GithubOrganisation(randomUUID.toString)
     val org2    = GithubOrganisation(randomUUID.toString)
 
-    def githubApi(userOrganisations: Map[UserHandle, List[GithubOrganisation]]): GithubApi[Id] =
-      userHandle => userOrganisations.get(userHandle)
+    def githubApi(userOrganisations: Map[UserHandle, List[GithubOrganisation]]): GithubApi[IO] =
+      userHandle => IO.delay(userOrganisations.get(userHandle).getOrElse(UserNotFound(userHandle)))
   }
 }
