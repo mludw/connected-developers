@@ -42,30 +42,25 @@ class TwitterClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) exte
 
   override def getFolowedUsers(userId: UserId): F[List[UserId]] =
     fs2.Stream
-      .iterateEval[F, Instruction](Init) {
-        case Init                      => getFollowed(userId, List.empty)
-        case WithNextPage(found, page) => getFollowed(userId, found, nextPage = page.some)
-        case last: LastPage            => last.pure[F]
+      .iterateEval[F, Init | Paginated](()) {
+        case ()                     => getFollowed(userId, List.empty)
+        case Paginated(found, page) => getFollowed(userId, found, nextPage = page)
       }
-      .collect { case LastPage(found) => found }
+      .collect { case Paginated(found, None) => found }
       .take(1)
       .compile
       .last
       .map(_.getOrElse(List.empty)) // we could fail the call as well here with some error
 
-  private def getFollowed(id: UserId, found: List[UserId], nextPage: Option[String] = None): F[Instruction] =
+  private def getFollowed(id: UserId, found: List[UserId], nextPage: Option[String] = None): F[Init | Paginated] =
     httpClient.run(getFollowedRequest(id, nextPage)).use {
       case Successful(resp) =>
         resp
           .attemptAs[Users](jsonOf)
-          .fold(
-            _ =>
-              LastPage(found =
-                List.empty // assumes unexpected error is caused by missing user, this should be improved
-              ),
-            {
-              case Users(data, Meta(Some(nextToken))) => WithNextPage(found ++ data.map(toId), nextToken)
-              case Users(data, Meta(_))               => LastPage(found ++ data.map(toId))
+          .fold( // assumes unexpected error is caused by missing user, this should be improved
+            _ => Paginated(found = List.empty, nextPage = None),
+            { case Users(data, Meta(maybeNextToken)) =>
+              Paginated(found ++ data.map(toId), maybeNextToken)
             }
           )
       case resp =>
@@ -90,10 +85,8 @@ class TwitterClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) exte
         .withOptionQueryParam("pagination_token", nextPage)
     )
 
-private sealed trait Instruction
-private case object Init                                           extends Instruction
-private case class LastPage(found: List[UserId])                   extends Instruction
-private case class WithNextPage(found: List[UserId], page: String) extends Instruction
+private type Init = Unit
+private case class Paginated(found: List[UserId], nextPage: Option[String])
 
 private final case class User(data: Data)
 private final case class Users(data: List[Data], meta: Meta)
