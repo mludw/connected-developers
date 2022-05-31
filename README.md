@@ -9,12 +9,23 @@ The application provided REST API for finding connected developers.
 
 ### Apporach
 
+#### Architecrture
+
 The application is designed using of hexagonal architecture.
 The 'devconnected.application' package defines the domain,
 other 'devconnected.*' packages implement adapters.
 
+#### Scala 3
+
 The excercise has been done with Scala3.
 If some language features used look controversial - it can be caused by lack of experience with the language update :).
+
+#### Twitter
+
+Twitter get-following-users call is building list of all users and lets the application domain to find matching users.
+Advantage of such approach is we could cache the followed users and the twitter port is something generic.
+If we want to make the app more memory effecrtive (if people follow really huge amounts of users), 
+we could allow twitter layer to check if user follows another user - iterate through users stream and do not build the list in the memory.
 
 ### Possible improvements/optimisations that could be implemented:
 
