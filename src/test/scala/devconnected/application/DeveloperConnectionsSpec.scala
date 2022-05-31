@@ -35,7 +35,7 @@ class DeveloperConnectionsSpec extends AnyFreeSpec with Matchers with TableDrive
       )
 
       forAll(cases) { checkResult =>
-        val connections = new DeveloperConnections(dummyGithub, dummyTwitter, (_, _) => checkResult)
+        val connections = DeveloperConnections(dummyGithub, dummyTwitter, (_, _) => checkResult)
 
         val check = connections.checkConnection(handle1, handle2).unsafeRunSync()
 
@@ -56,7 +56,7 @@ class DeveloperConnectionsSpec extends AnyFreeSpec with Matchers with TableDrive
         callParams.set((d1, d2).some)
         NotConnected
       }
-      val connections = new DeveloperConnections(github, twitter, connectionCheck)
+      val connections = DeveloperConnections(github, twitter, connectionCheck)
 
       connections.checkConnection(handle1, handle2).unsafeRunSync()
 
@@ -76,7 +76,7 @@ class DeveloperConnectionsSpec extends AnyFreeSpec with Matchers with TableDrive
           case `handle1` => IO.sleep(user1Delay).map(_ => userCalls.updateAndGet(_ :+ handle1)).as(List.empty)
           case `handle2` => IO.sleep(user2Delay).map(_ => userCalls.updateAndGet(_ :+ handle2)).as(List.empty)
         }
-        val connections = new DeveloperConnections(github, dummyTwitter, (_, _) => NotConnected)
+        val connections = DeveloperConnections(github, dummyTwitter, (_, _) => NotConnected)
 
         connections.checkConnection(handle1, handle2).unsafeRunSync()
 
@@ -102,7 +102,7 @@ class DeveloperConnectionsSpec extends AnyFreeSpec with Matchers with TableDrive
           override def getFolowedUsers(userId: UserId) =
             IO.delay(getFollowedUsersCalls.updateAndGet(_ :+ userId)).as(List.empty)
         }
-        val connections = new DeveloperConnections(dummyGithub, twitter, (_, _) => NotConnected)
+        val connections = DeveloperConnections(dummyGithub, twitter, (_, _) => NotConnected)
 
         connections.checkConnection(handle1, handle2).unsafeRunSync()
 
@@ -120,7 +120,7 @@ class DeveloperConnectionsSpec extends AnyFreeSpec with Matchers with TableDrive
 
       forAll(cases) { (userOrganisations, missingHandles) =>
         val github      = githubApi(userOrganisations = userOrganisations)
-        val connections = new DeveloperConnections(github, dummyTwitter, (_, _) => NotConnected)
+        val connections = DeveloperConnections(github, dummyTwitter, (_, _) => NotConnected)
 
         val check = connections.checkConnection(handle1, handle2).unsafeRunSync()
 
@@ -138,7 +138,7 @@ class DeveloperConnectionsSpec extends AnyFreeSpec with Matchers with TableDrive
 
       forAll(cases) { (handleToId, missingHandles) =>
         val twitter     = twitterApi(handleToId = handleToId, following = Map.empty)
-        val connections = new DeveloperConnections(dummyGithub, twitter, (_, _) => NotConnected)
+        val connections = DeveloperConnections(dummyGithub, twitter, (_, _) => NotConnected)
 
         val check = connections.checkConnection(handle1, handle2).unsafeRunSync()
 

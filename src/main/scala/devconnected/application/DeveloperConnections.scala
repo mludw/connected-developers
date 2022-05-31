@@ -20,18 +20,26 @@ import devconnected.application.error.InvalidGithubUserHandle
 import devconnected.application.error.InvalidTwitterUserHandle
 import devconnected.application.twitter.TwitterApi
 import devconnected.application.github.GithubApi.UserNotFound
+import cats.Monad
 
-class DeveloperConnections[F[_]: Concurrent: Parallel](
-    github: GithubApi[F],
-    twitter: TwitterApi[F],
-    connectionCheck: ConnectionCheck
-):
-
+trait DeveloperConnections[F[_]]:
   def checkConnection(
       handle1: UserHandle,
       handle2: UserHandle
-  ): F[NonEmptyList[ConnectionsFailure] | ConnectionCheckResult] =
-    (github.getOrganisations(handle1), github.getOrganisations(handle2), getFollowed(handle1), getFollowed(handle2))
+  ): F[NonEmptyList[ConnectionsFailure] | ConnectionCheckResult]
+
+object DeveloperConnections {
+  def apply[F[_]: Concurrent: Parallel](
+      github: GithubApi[F],
+      twitter: TwitterApi[F],
+      connectionCheck: ConnectionCheck
+  ): DeveloperConnections[F] = (handle1, handle2) =>
+    (
+      github.getOrganisations(handle1),
+      github.getOrganisations(handle2),
+      twitter.getFollowed(handle1),
+      twitter.getFollowed(handle2)
+    )
       .parMapN { case (maybeOrgs1, maybeOrgs2, followsOnTwitter1, followsOnTwitter2) =>
         (toValidated(maybeOrgs1), toValidated(maybeOrgs2), followsOnTwitter1, followsOnTwitter2)
           .mapN { case (githubUserOrgs1, githubUserOrgs2, twitterUser1, twitterUser2) =>
@@ -51,17 +59,20 @@ class DeveloperConnections[F[_]: Concurrent: Parallel](
           .fold(identity, identity) // converts validated to flat list of errors OR successful connection check result
       }
 
-  private def getFollowed(handle: UserHandle) = for {
-    maybeId <- twitter.getUserId(handle)
-    followed <- maybeId.fold(InvalidTwitterUserHandle(handle).invalidNel[TwitterData].pure[F])(id =>
-      twitter.getFolowedUsers(id).map(TwitterData(id, _).validNel)
-    )
-  } yield followed
+  implicit private class TwitterOps[F[_]: Monad](twitter: TwitterApi[F]) {
+    def getFollowed(handle: UserHandle) = for {
+      maybeId <- twitter.getUserId(handle)
+      followed <- maybeId.fold(InvalidTwitterUserHandle(handle).invalidNel[TwitterData].pure[F])(id =>
+        twitter.getFolowedUsers(id).map(TwitterData(id, _).validNel)
+      )
+    } yield followed
+  }
 
   private def toValidated
       : GithubApi.GetOrganisationsResponse => Validated[NonEmptyList[ConnectionsFailure], List[GithubOrganisation]] = {
     case orgs: List[GithubOrganisation] => orgs.validNel
     case UserNotFound(user)             => InvalidGithubUserHandle(user).invalidNel
   }
+}
 
 private case class TwitterData(userId: UserId, follows: List[UserId])
