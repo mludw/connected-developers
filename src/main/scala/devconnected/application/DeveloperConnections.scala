@@ -2,24 +2,24 @@ package devconnected.application
 
 import cats.Applicative
 import cats.implicits._
+import cats.effect.Concurrent
+import cats.Parallel
+import cats.data.Validated
+import cats.data.NonEmptyList
+import cats.data.Validated.Valid
+import cats.data.Validated.Invalid
 import devconnected.application.connection.ConnectionCheck
 import devconnected.application.connection.ConnectionCheckResult
 import devconnected.application.connection.GithubOrganisation
 import devconnected.application.connection.UserHandle
 import devconnected.application.connection.UserId
+import devconnected.application.connection.DeveloperData
 import devconnected.application.github.GithubApi
 import devconnected.application.error.ConnectionsFailure
 import devconnected.application.error.InvalidGithubUserHandle
 import devconnected.application.error.InvalidTwitterUserHandle
-import devconnected.application.connection.DeveloperData
-import cats.effect.Concurrent
-import cats.Parallel
-import cats.data.Validated
-import devconnected.application.github.GithubApi.UserNotFound
-import cats.data.NonEmptyList
-import cats.data.Validated.Valid
-import cats.data.Validated.Invalid
 import devconnected.application.twitter.TwitterApi
+import devconnected.application.github.GithubApi.UserNotFound
 
 class DeveloperConnections[F[_]: Concurrent: Parallel](
     github: GithubApi[F],

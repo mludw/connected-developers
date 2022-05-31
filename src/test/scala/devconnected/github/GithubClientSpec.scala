@@ -5,24 +5,18 @@ import cats.implicits._
 import cats.effect.testing.scalatest.AsyncIOSpec
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
-import scala.concurrent.duration._
-import java.util.concurrent.atomic.AtomicInteger
 import devconnected.application.connection.UserHandle
 import org.http4s.client.Client
 import cats.effect.kernel.Resource
-import org.http4s.Response
 import devconnected.application.github.GithubApi.UserNotFound
 import devconnected.application.connection.GithubOrganisation
-import scala.util.Failure
 import org.http4s.circe._
 import io.circe.syntax._
 import io.circe.Encoder
 import io.circe.Json
-import io.circe._
 import org.http4s._
 import org.http4s.dsl.io._
 import java.util.concurrent.atomic.AtomicReference
-import org.http4s.headers.Authorization
 
 class GithubClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
   import TestContext._
