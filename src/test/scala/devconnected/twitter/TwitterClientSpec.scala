@@ -86,7 +86,7 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
     }
   }
 
-  "isFollowing should" - {
+  "getFolowedUsers should" - {
     "call expected twitter endpoint url-encoding user handle" in {
       val call = new AtomicReference[Option[Request[IO]]](None)
       val httpClient =
@@ -97,7 +97,7 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
           )
         })
 
-      new TwitterClient(httpClient).isFollowing(UserId("zy/a b"), UserId("qwe")).map { _ =>
+      new TwitterClient(httpClient).getFolowedUsers(UserId("zy/a b")).map { _ =>
         val actualCall = call.get.get
         actualCall.method shouldBe Method.GET
         actualCall.uri.renderString shouldBe "https://api.twitter.com/2/users/zy%2Fa%20b/following?max_results=100&user.fields=id"
@@ -107,62 +107,43 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
     "respond with false if the user follows no one" in {
       val twitter = followingTwitterClient(Paginated(List.empty, nextPage = None), Map.empty)
 
-      twitter.isFollowing(userId1, userId2).map { resp =>
-        resp shouldBe false
+      twitter.getFolowedUsers(userId1).map { resp =>
+        resp shouldBe List.empty[UserId]
       }
     }
 
     "iterate through pages until there are no more pages left" in {
+      val pages @ List(page1, page2, page3, page4, page5) =
+        List(page("next-1"), page("next-2"), page("next-3"), page("next-4"), page(None))
+
       val twitter =
         followingTwitterClient(
-          page("next-1"),
+          page1,
           Map(
-            "next-1" -> page("next-2"),
-            "next-2" -> page("next-3"),
-            "next-3" -> page("next-4"),
-            "next-3" -> page(None)
+            page1.nextPage.get -> page2,
+            page2.nextPage.get -> page3,
+            page3.nextPage.get -> page4,
+            page4.nextPage.get -> page5
           )
         )
 
-      twitter.isFollowing(userId1, userId2).map { resp =>
-        resp shouldBe false
+      twitter.getFolowedUsers(userId1).map { resp =>
+        resp shouldBe pages.flatMap(_.followed)
       }
     }
 
-    "stop iterating through pages when it finds matching id" in {
-      val page3   = page("next-3")
-      val twitter = followingTwitterClient(page("next-1"), Map("next-1" -> page("next-2"), "next-2" -> page3))
-
-      twitter.isFollowing(userId1, page3.followed.get(2).get).map { resp =>
-        resp shouldBe true
-      }
-    }
-
-    "return true if it finds matching id on the last page" in {
-      val page4 = page(None)
-      val twitter =
-        followingTwitterClient(
-          page("next-1"),
-          Map("next-1" -> page("next-2"), "next-2" -> page("next-3"), "next-3" -> page4)
-        )
-
-      twitter.isFollowing(userId1, page4.followed.get(3).get).map { resp =>
-        resp shouldBe true
-      }
-    }
-
-    "return false for unexpected response body" in { // this should be improved in real app, for this test this is enough
+    "return no user ids for unexpected response body" in { // this should be improved in real app, for this test this is enough
       val twitter = twitterClient(Ok(Json.arr(Json.obj("abc" -> "def".asJson))))
 
-      twitter.isFollowing(userId1, userId2).map { resp =>
-        resp shouldBe false
+      twitter.getFolowedUsers(userId1).map { resp =>
+        resp shouldBe List.empty[UserId]
       }
     }
 
     "fail for unauthorized response" in {
       val twitter = twitterClient(Response(status = Unauthorized))
 
-      twitter.isFollowing(userId1, userId2).attempt.map { resp =>
+      twitter.getFolowedUsers(userId1).attempt.map { resp =>
         resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 401")
       }
     }
@@ -170,7 +151,7 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
     "fail for Forbidden response status" in {
       val twitter = twitterClient(Response(status = Forbidden))
 
-      twitter.isFollowing(userId1, userId2).attempt.map { resp =>
+      twitter.getFolowedUsers(userId1).attempt.map { resp =>
         resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 403")
       }
     }
@@ -178,7 +159,7 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
     "fail for unexpected response status" in {
       val twitter = twitterClient(Response(status = BadRequest))
 
-      twitter.isFollowing(userId1, userId2).attempt.map { resp =>
+      twitter.getFolowedUsers(userId1).attempt.map { resp =>
         resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 400")
       }
     }

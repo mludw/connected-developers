@@ -40,34 +40,32 @@ class TwitterClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) exte
       case resp => F.raiseError(new Exception(s"twitter responded with unexpected status: ${resp.status.code}"))
     }
 
-  override def isFollowing(follower: UserId, followed: UserId): F[Boolean] =
+  override def getFolowedUsers(userId: UserId): F[List[UserId]] =
     fs2.Stream
       .iterateEval[F, Instruction](Init) {
-        case Init =>
-          getFollowed(follower)
-        case WithNextPage(found, page) =>
-          if (found.contains(followed)) LastPage(found).pure[F] else getFollowed(follower, nextPage = page.some)
-        case last: LastPage =>
-          last.pure[F]
+        case Init                      => getFollowed(userId, List.empty)
+        case WithNextPage(found, page) => getFollowed(userId, found, nextPage = page.some)
+        case last: LastPage            => last.pure[F]
       }
-      .collect { case LastPage(found) =>
-        found.contains(followed)
-      }
+      .collect { case LastPage(found) => found }
       .take(1)
       .compile
       .last
-      .map(_.getOrElse(false)) // we could fail the call as well here with some error
+      .map(_.getOrElse(List.empty)) // we could fail the call as well here with some error
 
-  private def getFollowed(id: UserId, nextPage: Option[String] = None): F[Instruction] =
+  private def getFollowed(id: UserId, found: List[UserId], nextPage: Option[String] = None): F[Instruction] =
     httpClient.run(getFollowedRequest(id, nextPage)).use {
       case Successful(resp) =>
         resp
           .attemptAs[Users](jsonOf)
           .fold(
-            _ => LastPage(found = List.empty), // the error handling here should be improved!
+            _ =>
+              LastPage(found =
+                List.empty // assumes unexpected error is caused by missing user, this should be improved
+              ),
             {
-              case Users(data, Meta(Some(nextToken))) => WithNextPage(data.map(toId), nextToken)
-              case Users(data, Meta(_))               => LastPage(data.map(toId))
+              case Users(data, Meta(Some(nextToken))) => WithNextPage(found ++ data.map(toId), nextToken)
+              case Users(data, Meta(_))               => LastPage(found ++ data.map(toId))
             }
           )
       case resp =>
