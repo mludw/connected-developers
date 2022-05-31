@@ -8,7 +8,7 @@ import org.scalatest.Inside
 
 class ConnectionCheckSpec extends AnyFreeSpec with Matchers with Inside with TableDrivenPropertyChecks {
 
-  "should respond with true for the developers with intersecting github organisations" in new TestContext {
+  "should respond with true for the developers with intersecting github organisations (and following each other)" in new TestContext {
     val withMatchingOrganisations = Table(
       ("developer 1 github organisations", "developer 2 github organisations", "common organisations"),
       (List(org1), List(org1), NonEmptyList.of(org1)),
@@ -26,6 +26,26 @@ class ConnectionCheckSpec extends AnyFreeSpec with Matchers with Inside with Tab
 
       inside(checkResult) { case Connected(connected) =>
         connected.toList should contain allElementsOf (commonOrgs.toList)
+      }
+    }
+  }
+
+  "should respond with true for the developers following each other (and with intersecting github organisations)" in new TestContext {
+    val withMatchingOrganisations = Table(
+      ("developer 1 followed users", "developer 2 followed users"),
+      (List(id2, id3, id4), List(id1)),
+      (List(id3, id4, id2), List(id3, id4, id1)),
+      (List(id2), List(id1))
+    )
+
+    forAll(withMatchingOrganisations) { case (followed1, followed2) =>
+      val developer1 = developer.copy(twitterId = id1, followsOnTwitter = followed1)
+      val developer2 = developer.copy(twitterId = id2, followsOnTwitter = followed2)
+
+      val checkResult = ConnectionCheck.apply(developer1, developer2)
+
+      inside(checkResult) { case Connected(connected) =>
+        connected.toList should contain allElementsOf (developer.githubOrganisations)
       }
     }
   }
@@ -65,7 +85,9 @@ class ConnectionCheckSpec extends AnyFreeSpec with Matchers with Inside with Tab
 
   private trait TestContext {
     val List(org1, org2, org3, org4) = List.tabulate(4)(i => GithubOrganisation(s"org-$i"))
+    val List(id1, id2, id3, id4)     = List.tabulate(4)(i => UserId(s"id-$i"))
 
-    val developer = DeveloperData(githubOrganisations = List(org1, org2))
+    val developer =
+      DeveloperData(githubOrganisations = List(org1, org2), twitterId = id1, followsOnTwitter = List(id2))
   }
 }

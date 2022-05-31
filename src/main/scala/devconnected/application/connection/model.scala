@@ -17,7 +17,11 @@ opaque type GithubOrganisation = String
 object GithubOrganisation:
   def apply(s: String): GithubOrganisation = s
 
-final case class DeveloperData(githubOrganisations: List[GithubOrganisation])
+final case class DeveloperData(
+    githubOrganisations: List[GithubOrganisation],
+    twitterId: UserId,
+    followsOnTwitter: List[UserId]
+)
 
 sealed trait ConnectionCheckResult
 final case class Connected(githubOrganisations: NonEmptyList[GithubOrganisation]) extends ConnectionCheckResult
