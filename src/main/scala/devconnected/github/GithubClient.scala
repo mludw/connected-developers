@@ -27,8 +27,10 @@ import org.http4s.Status.ClientError
 import cats.effect.Concurrent
 import org.typelevel.ci.CIStringSyntax
 import org.http4s.QueryParam
+import org.http4s.Credentials
+import org.http4s.AuthScheme
 
-class GithubClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) extends GithubApi[F]:
+class GithubClient[F[_]](httpClient: Client[F], token: GithubToken)(implicit F: Concurrent[F]) extends GithubApi[F]:
 
   override def getOrganisations(userHandle: UserHandle): F[GithubApi.GetOrganisationsResponse] = {
     val pages = for {
@@ -63,6 +65,9 @@ class GithubClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) exten
       method = GET,
       uri = (uri"https://github.com" / "users" / s"$user" / "orgs").withQueryParam("page", page.toString)
     )
-      .withHeaders(Header.Raw(ci"Accept", "application/vnd.github.v3+json"))
+      .withHeaders(
+        Authorization(Credentials.Token(AuthScheme.Bearer, s"$token")),
+        Header.Raw(ci"Accept", "application/vnd.github.v3+json")
+      )
 
 private final case class Organisation(login: String)

@@ -18,17 +18,18 @@ import org.http4s.circe._
 import io.circe.syntax._
 import io.circe.Encoder
 import io.circe.Json
-
 import io.circe._
 import org.http4s._
 import org.http4s.dsl.io._
 import java.util.concurrent.atomic.AtomicReference
+import org.http4s.headers.Authorization
 
 class GithubClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
   import TestContext._
 
   "getOrganisations should call expected github endpoint url-encoding user handle" in {
-    val call = new AtomicReference[Option[Request[IO]]](None)
+    val call               = new AtomicReference[Option[Request[IO]]](None)
+    val token: GithubToken = GithubToken("a-token")
     val httpClient =
       Client[IO](req => {
         call.set(req.some)
@@ -37,10 +38,14 @@ class GithubClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
         )
       })
 
-    new GithubClient(httpClient).getOrganisations(UserHandle("zy/a b")).map { _ =>
+    new GithubClient(httpClient, token).getOrganisations(UserHandle("zy/a b")).map { _ =>
       val actualCall = call.get.get
       actualCall.method shouldBe Method.GET
       actualCall.uri.renderString shouldBe s"https://github.com/users/zy%2Fa%20b/orgs?page=1"
+      actualCall.headers.headers.map(h => h.name.toString -> h.value) should contain allOf (
+        "Authorization" -> s"Bearer $token",
+        "Accept"        -> "application/vnd.github.v3+json"
+      )
     }
   }
 
@@ -108,14 +113,16 @@ class GithubClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
     implicit val githubOrganisationEncoder: Encoder[GithubOrganisation] =
       Encoder.instance { org => Json.obj("login" -> s"$org".asJson) }
 
+    val theToken: GithubToken = GithubToken("some-token")
+
     def getGithubClient(response: Response[IO]) = {
       val httpClient = Client[IO](_ => Resource(IO.delay(response -> IO.delay(()))))
-      new GithubClient(httpClient)
+      new GithubClient(httpClient, theToken)
     }
 
     def getGithubClient(response: IO[Response[IO]]) = {
       val httpClient = Client[IO](_ => Resource(response.map(_ -> IO.delay(()))))
-      new GithubClient(httpClient)
+      new GithubClient(httpClient, theToken)
     }
 
     def getGithubClient(pages: Map[Int, List[GithubOrganisation]]) = {
@@ -125,7 +132,7 @@ class GithubClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
             Ok(pages(req.params("page").toInt).asJson).map(_ -> IO.delay(()))
           )
         )
-      new GithubClient(httpClient)
+      new GithubClient(httpClient, theToken)
     }
 
     val userHandle = UserHandle("abc")
