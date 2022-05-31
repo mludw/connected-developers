@@ -28,7 +28,17 @@ import org.http4s.QueryParam
 
 class TwitterClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) extends TwitterApi[F]:
 
-  override def getUserId(userHandle: UserHandle): F[Option[UserId]] = ???
+  override def getUserId(userHandle: UserHandle): F[Option[UserId]] =
+    httpClient.run(getUserByHandleRequest(userHandle)).use {
+      case Successful(resp) =>
+        resp
+          .attemptAs[User](jsonOf)
+          .fold(
+            _ => None,
+            u => UserId(u.data.id).some
+          )
+      case resp => F.raiseError(new Exception(s"twitter responded with unexpected status: ${resp.status.code}"))
+    }
 
   override def isFollowing(follower: UserId, followed: UserId): F[Boolean] =
     fs2.Stream
@@ -45,7 +55,8 @@ class TwitterClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) exte
       }
       .take(1)
       .compile
-      .lastOrError // this is not perfect but I expect the stream to always return something
+      .last
+      .map(_.getOrElse(false)) // we could fail the call as well here with some error
 
   private def getFollowed(id: UserId, nextPage: Option[String] = None): F[Instruction] =
     httpClient.run(getFollowedRequest(id, nextPage)).use {
@@ -60,7 +71,7 @@ class TwitterClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) exte
             }
           )
       case resp =>
-        // seems like api returns 200 ok for unknown id (error handling is simplified here)
+        // it seems that api returns 200 ok for unknown id (error handling is simplified here)
         F.raiseError(new Exception(s"twitter responded with unexpected status: ${resp.status.code}"))
     }
 
@@ -76,6 +87,7 @@ class TwitterClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) exte
     Request[F](
       method = GET,
       uri = (uri"https://api.twitter.com/2/users/" / s"$id" / "following")
+        .withQueryParam("max_results", "100")
         .withQueryParam("user.fields", "id")
         .withOptionQueryParam("pagination_token", nextPage)
     )
