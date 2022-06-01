@@ -83,11 +83,44 @@ class ConnectionCheckSpec extends AnyFreeSpec with Matchers with Inside with Tab
     }
   }
 
+  "should respond with false when the developer does not follow anybody" in new TestContext {
+    val noOrganisationAssigned = Table(
+      ("followed by developer 1", "followed by developer 2"),
+      List.empty[UserId] -> List(id1),
+      List(id2)          -> List.empty[UserId],
+      List.empty[UserId] -> List.empty[UserId]
+    )
+
+    forAll(noOrganisationAssigned) { case (followedBy1, followedBy2) =>
+      val developer1 = developer.copy(twitterId = id1, followsOnTwitter = followedBy1)
+      val developer2 = developer.copy(twitterId = id2, followsOnTwitter = followedBy2)
+
+      ConnectionCheck.apply(developer1, developer2) shouldBe NotConnected
+    }
+  }
+
+  "should respond with false for the users that do not follow each other" in new TestContext {
+    val withoutMatchingOrganisations = Table(
+      ("followed by developer 1", "followed by developer 2"),
+      List(id1)      -> List(id1),
+      List(id3, id4) -> List(id1),
+      List(id2, id3) -> List(id3, id4),
+      List(id4)      -> List(id4)
+    )
+
+    forAll(withoutMatchingOrganisations) { case (followedBy1, followedBy2) =>
+      val developer1 = developer.copy(twitterId = id1, followsOnTwitter = followedBy1)
+      val developer2 = developer.copy(twitterId = id2, followsOnTwitter = followedBy2)
+
+      ConnectionCheck.apply(developer1, developer2) shouldBe NotConnected
+    }
+  }
+
   private trait TestContext {
     val List(org1, org2, org3, org4) = List.tabulate(4)(i => GithubOrganisation(s"org-$i"))
     val List(id1, id2, id3, id4)     = List.tabulate(4)(i => UserId(s"id-$i"))
 
     val developer =
-      DeveloperData(githubOrganisations = List(org1, org2), twitterId = id1, followsOnTwitter = List(id2))
+      DeveloperData(githubOrganisations = List(org1, org2), twitterId = id1, followsOnTwitter = List(id1))
   }
 }
