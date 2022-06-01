@@ -15,7 +15,8 @@ object Dependencies {
     "org.http4s"    %% "http4s-ember-client" % versions.http4s,
     "org.http4s"    %% "http4s-circe"        % versions.http4s,
     "io.circe"      %% "circe-core"          % versions.circe,
-    "io.circe"      %% "circe-generic"       % versions.circe
+    "io.circe"      %% "circe-generic"       % versions.circe,
+    "io.circe"      %% "circe-literal"       % versions.circe
   )
 
   val testDependencies = Seq(

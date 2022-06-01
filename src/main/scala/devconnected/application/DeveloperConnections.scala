@@ -59,7 +59,7 @@ object DeveloperConnections {
           .fold(identity, identity) // converts validated to flat list of errors OR successful connection check result
       }
 
-  implicit private class TwitterOps[F[_]: Monad](twitter: TwitterApi[F]) {
+  extension [F[_]: Monad](twitter: TwitterApi[F]) {
     def getFollowed(handle: UserHandle) = for {
       maybeId <- twitter.getUserId(handle)
       followed <- maybeId.fold(InvalidTwitterUserHandle(handle).invalidNel[TwitterData].pure[F])(id =>
