@@ -3,8 +3,9 @@ import sbt._
 object Dependencies {
 
   object versions {
-    val http4s = "0.23.12"
-    val circe  = "0.14.2"
+    val http4s     = "0.23.12"
+    val circe      = "0.14.2"
+    val scalacache = "1.0.0-M6" // there is no stable version for Scala 3 yet
   }
 
   val mainDependencies = Seq(
@@ -18,7 +19,9 @@ object Dependencies {
     "io.circe"                   %% "circe-generic"       % versions.circe,
     "io.circe"                   %% "circe-literal"       % versions.circe,
     "ch.qos.logback"              % "logback-classic"     % "1.2.10",
-    "com.typesafe.scala-logging" %% "scala-logging"       % "3.9.4"
+    "com.typesafe.scala-logging" %% "scala-logging"       % "3.9.4",
+    "com.github.cb372"           %% "scalacache-core"     % versions.scalacache,
+    "com.github.cb372"           %% "scalacache-caffeine" % versions.scalacache
   )
 
   val testDependencies = Seq(

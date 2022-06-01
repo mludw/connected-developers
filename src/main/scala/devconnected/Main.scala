@@ -13,16 +13,21 @@ import org.http4s.ember.server.EmberServerBuilder
 import scala.concurrent.ExecutionContext.global
 import cats.effect.ExitCode
 import com.typesafe.scalalogging.LazyLogging
+import devconnected.github.CachedGithubClient
+import devconnected.twitter.CachedTwitterClient
 
 object Main extends IOApp with LazyLogging {
 
   override def run(args: List[String]) = for {
     config <- Config.load
+    cache = config.cache
     api <- EmberClientBuilder.default[IO].build.use { case httpClient =>
-      val githubClient  = new GithubClient(httpClient)
-      val twitterClient = new TwitterClient(httpClient, config.twitterToken)
-      val connections   = DeveloperConnections(githubClient, twitterClient, ConnectionCheck)
-      IO.delay(DeveloperConnectionsApi(connections))
+      for {
+        githubClient <- CachedGithubClient(new GithubClient(httpClient), cache.maxSize, cache.ttl)
+        twitterApi = new TwitterClient(httpClient, config.twitterToken)
+        twitterClient <- CachedTwitterClient(twitterApi, cache.maxSize, cache.ttl)
+        connections = DeveloperConnections(githubClient, twitterClient, ConnectionCheck)
+      } yield DeveloperConnectionsApi(connections)
     }
     _   <- logInfo("--- STARTING THE APPLICATION ON PORT 8080 ---")
     res <- bind(api)

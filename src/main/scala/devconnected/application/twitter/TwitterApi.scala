@@ -1,6 +1,5 @@
 package devconnected.application.twitter
 
-import devconnected.application.connection.GithubOrganisation
 import devconnected.application.connection.UserHandle
 import devconnected.application.connection.UserId
 

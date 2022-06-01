@@ -35,6 +35,7 @@ we could allow twitter layer to check if user follows another user - iterate thr
  - github/twitter url should be defined in the configuration (so I can e2e the app or start it locally with mocks)
  - last github groups API call could be avoided if amount of returned elements is less than requested
  - http client retries
+ - there are no tests for github/twitter cache wrappers, the tests are important but I did not want to use more time - I just tested it manually
  - e2e test starting application REST API, mocking external APIs (github and twitter)
 
 #### Testing
