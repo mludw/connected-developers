@@ -24,9 +24,11 @@ import org.http4s.syntax.all.uri
 import org.http4s.Status
 import org.http4s.Status.Successful
 import org.http4s.Status.ClientError
-import org.http4s.QueryParam
+import org.http4s.Credentials
+import org.http4s.AuthScheme
+import org.http4s.Response
 
-class TwitterClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) extends TwitterApi[F]:
+class TwitterClient[F[_]](httpClient: Client[F], token: TwitterToken)(implicit F: Concurrent[F]) extends TwitterApi[F]:
 
   override def getUserId(userHandle: UserHandle): F[Option[UserId]] =
     httpClient.run(getUserByHandleRequest(userHandle)).use {
@@ -37,7 +39,7 @@ class TwitterClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) exte
             _ => None,
             u => UserId(u.data.id).some
           )
-      case resp => F.raiseError(new Exception(s"twitter responded with unexpected status: ${resp.status.code}"))
+      case resp => raiseError(resp)
     }
 
   override def getFolowedUsers(userId: UserId): F[List[UserId]] =
@@ -63,10 +65,13 @@ class TwitterClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) exte
               Paginated(found ++ data.map(toId), maybeNextToken)
             }
           )
-      case resp =>
-        // it seems that api returns 200 ok for unknown id (error handling is simplified here)
-        F.raiseError(new Exception(s"twitter responded with unexpected status: ${resp.status.code}"))
+      case resp => raiseError(resp)
+      // it seems that api returns 200 ok for unknown id (error handling is simplified here)
     }
+
+  private def raiseError[A](resp: Response[F]) = F.raiseError[A](
+    new Exception(s"twitter responded with unexpected status: ${resp.status.code} ${resp.status.reason}")
+  )
 
   private def toId(data: Data): UserId = UserId(data.id)
 
@@ -74,7 +79,7 @@ class TwitterClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) exte
     Request[F](
       method = GET,
       uri = (uri"https://api.twitter.com/2/users/by/username" / s"$user")
-    )
+    ).withHeaders(Authorization(Credentials.Token(AuthScheme.Bearer, s"$token")))
 
   private def getFollowedRequest(id: UserId, nextPage: Option[String]) =
     Request[F](
@@ -83,7 +88,7 @@ class TwitterClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) exte
         .withQueryParam("max_results", "100")
         .withQueryParam("user.fields", "id")
         .withOptionQueryParam("pagination_token", nextPage)
-    )
+    ).withHeaders(Authorization(Credentials.Token(AuthScheme.Bearer, s"$token")))
 
 private type Init = Unit
 private case class Paginated(found: List[UserId], nextPage: Option[String])

@@ -8,15 +8,17 @@ object Dependencies {
   }
 
   val mainDependencies = Seq(
-    "org.typelevel" %% "cats-core"           % "2.7.0",
-    "org.typelevel" %% "cats-effect"         % "3.3.12",
-    "org.http4s"    %% "http4s-dsl"          % versions.http4s,
-    "org.http4s"    %% "http4s-ember-server" % versions.http4s,
-    "org.http4s"    %% "http4s-ember-client" % versions.http4s,
-    "org.http4s"    %% "http4s-circe"        % versions.http4s,
-    "io.circe"      %% "circe-core"          % versions.circe,
-    "io.circe"      %% "circe-generic"       % versions.circe,
-    "io.circe"      %% "circe-literal"       % versions.circe
+    "org.typelevel"              %% "cats-core"           % "2.7.0",
+    "org.typelevel"              %% "cats-effect"         % "3.3.12",
+    "org.http4s"                 %% "http4s-dsl"          % versions.http4s,
+    "org.http4s"                 %% "http4s-ember-server" % versions.http4s,
+    "org.http4s"                 %% "http4s-ember-client" % versions.http4s,
+    "org.http4s"                 %% "http4s-circe"        % versions.http4s,
+    "io.circe"                   %% "circe-core"          % versions.circe,
+    "io.circe"                   %% "circe-generic"       % versions.circe,
+    "io.circe"                   %% "circe-literal"       % versions.circe,
+    "ch.qos.logback"              % "logback-classic"     % "1.2.10",
+    "com.typesafe.scala-logging" %% "scala-logging"       % "3.9.4"
   )
 
   val testDependencies = Seq(

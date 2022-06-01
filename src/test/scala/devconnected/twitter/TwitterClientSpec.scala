@@ -23,7 +23,8 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
 
   "getUserId should" - {
     "call expected twitter endpoint url-encoding user handle" in {
-      val call = new AtomicReference[Option[Request[IO]]](None)
+      val call                = new AtomicReference[Option[Request[IO]]](None)
+      val token: TwitterToken = TwitterToken("a-token")
       val httpClient =
         Client[IO](req => {
           call.set(req.some)
@@ -32,10 +33,13 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
           )
         })
 
-      new TwitterClient(httpClient).getUserId(UserHandle("ab/c")).map { _ =>
+      new TwitterClient(httpClient, token).getUserId(UserHandle("ab/c")).map { _ =>
         val actualCall = call.get.get
         actualCall.method shouldBe Method.GET
         actualCall.uri.renderString shouldBe "https://api.twitter.com/2/users/by/username/ab%2Fc"
+        actualCall.headers.headers.map(h => h.name.toString -> h.value) should contain(
+          "Authorization" -> s"Bearer $token"
+        )
       }
     }
 
@@ -59,7 +63,7 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
       val twitter = twitterClient(Response(status = Unauthorized))
 
       twitter.getUserId(userHandle).attempt.map { resp =>
-        resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 401")
+        resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 401 Unauthorized")
       }
     }
 
@@ -67,7 +71,7 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
       val twitter = twitterClient(Response(status = Forbidden))
 
       twitter.getUserId(userHandle).attempt.map { resp =>
-        resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 403")
+        resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 403 Forbidden")
       }
     }
 
@@ -75,14 +79,15 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
       val twitter = twitterClient(Response(status = BadRequest))
 
       twitter.getUserId(userHandle).attempt.map { resp =>
-        resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 400")
+        resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 400 Bad Request")
       }
     }
   }
 
   "getFolowedUsers should" - {
     "call expected twitter endpoint url-encoding user handle" in {
-      val call = new AtomicReference[Option[Request[IO]]](None)
+      val call                = new AtomicReference[Option[Request[IO]]](None)
+      val token: TwitterToken = TwitterToken("b-token")
       val httpClient =
         Client[IO](req => {
           call.set(req.some)
@@ -91,10 +96,13 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
           )
         })
 
-      new TwitterClient(httpClient).getFolowedUsers(UserId("zy/a b")).map { _ =>
+      new TwitterClient(httpClient, token).getFolowedUsers(UserId("zy/a b")).map { _ =>
         val actualCall = call.get.get
         actualCall.method shouldBe Method.GET
         actualCall.uri.renderString shouldBe "https://api.twitter.com/2/users/zy%2Fa%20b/following?max_results=100&user.fields=id"
+        actualCall.headers.headers.map(h => h.name.toString -> h.value) should contain(
+          "Authorization" -> s"Bearer $token"
+        )
       }
     }
 
@@ -138,7 +146,7 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
       val twitter = twitterClient(Response(status = Unauthorized))
 
       twitter.getFolowedUsers(userId1).attempt.map { resp =>
-        resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 401")
+        resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 401 Unauthorized")
       }
     }
 
@@ -146,7 +154,7 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
       val twitter = twitterClient(Response(status = Forbidden))
 
       twitter.getFolowedUsers(userId1).attempt.map { resp =>
-        resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 403")
+        resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 403 Forbidden")
       }
     }
 
@@ -154,7 +162,7 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
       val twitter = twitterClient(Response(status = BadRequest))
 
       twitter.getFolowedUsers(userId1).attempt.map { resp =>
-        resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 400")
+        resp.leftMap(_.getMessage) shouldBe Left("twitter responded with unexpected status: 400 Bad Request")
       }
     }
   }
@@ -162,6 +170,8 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
   object TestContext {
     type Page = String
     case class Paginated(followed: List[UserId], nextPage: Option[Page])
+
+    val theToken: TwitterToken = TwitterToken("some-token")
 
     implicit val userIdEncoder: Encoder[UserId] =
       Encoder.instance { id =>
@@ -178,16 +188,17 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
 
     def twitterClient(response: Response[IO]) = {
       val httpClient = Client[IO](_ => Resource(IO.delay(response -> IO.delay(()))))
-      new TwitterClient(httpClient)
+      new TwitterClient(httpClient, theToken)
     }
 
     def twitterClient(response: IO[Response[IO]]) = {
       val httpClient = Client[IO](_ => Resource(response.map(_ -> IO.delay(()))))
-      new TwitterClient(httpClient)
+      new TwitterClient(httpClient, theToken)
     }
 
     def twitterClientReturningId(response: UserId) = TwitterClient(
-      Client[IO](req => Resource(Ok(response.asJson).map(_ -> IO.delay(()))))
+      Client[IO](req => Resource(Ok(response.asJson).map(_ -> IO.delay(())))),
+      theToken
     )
 
     def followingTwitterClient(firstPage: Paginated, otherPages: Map[Page, Paginated]) = TwitterClient(
@@ -196,7 +207,8 @@ class TwitterClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
         Resource(
           Ok(paginatedUsersResp.asJson).map(_ -> IO.delay(()))
         )
-      )
+      ),
+      theToken
     )
 
     val userHandle = UserHandle("xyz")

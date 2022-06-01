@@ -26,11 +26,8 @@ import org.http4s.Status.Successful
 import org.http4s.Status.ClientError
 import cats.effect.Concurrent
 import org.typelevel.ci.CIStringSyntax
-import org.http4s.QueryParam
-import org.http4s.Credentials
-import org.http4s.AuthScheme
 
-class GithubClient[F[_]](httpClient: Client[F], token: GithubToken)(implicit F: Concurrent[F]) extends GithubApi[F]:
+class GithubClient[F[_]](httpClient: Client[F])(implicit F: Concurrent[F]) extends GithubApi[F]:
 
   override def getOrganisations(userHandle: UserHandle): F[GithubApi.GetOrganisationsResponse] = {
     val pages = for {
@@ -44,7 +41,9 @@ class GithubClient[F[_]](httpClient: Client[F], token: GithubToken)(implicit F: 
         case ClientError(resp) if resp.status == Status.NotFound =>
           None.pure[F]
         case resp =>
-          F.raiseError(new Exception(s"github responded with unexpected status: ${resp.status.code}"))
+          F.raiseError(
+            new Exception(s"github responded with unexpected status: ${resp.status.code} ${resp.status.reason}")
+          )
       })
     } yield maybeOrgs.map(_.map(o => GithubOrganisation(o.login)))
 
@@ -63,11 +62,7 @@ class GithubClient[F[_]](httpClient: Client[F], token: GithubToken)(implicit F: 
   private def getOrganisationsRequest(user: UserHandle, page: Int = 1) =
     Request[F](
       method = GET,
-      uri = (uri"https://github.com" / "users" / s"$user" / "orgs").withQueryParam("page", page.toString)
-    )
-      .withHeaders(
-        Authorization(Credentials.Token(AuthScheme.Bearer, s"$token")),
-        Header.Raw(ci"Accept", "application/vnd.github.v3+json")
-      )
+      uri = (uri"https://api.github.com" / "users" / s"$user" / "orgs").withQueryParam("page", page.toString)
+    ).withHeaders(Header.Raw(ci"Accept", "application/vnd.github.v3+json"))
 
 private final case class Organisation(login: String)
